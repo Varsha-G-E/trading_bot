@@ -1,39 +1,89 @@
-import argparse
+import logging
 from bot.orders import place_order
 from bot.validators import validate_input
-import logging
 from bot.logging_config import setup_logging
-import logging
+
+# Setup logging
 setup_logging()
 
-print("🚀 Script Started")  # DEBUG LINE
+print("🚀 Trading Bot Started")
 
-parser = argparse.ArgumentParser()
+# 🔹 Interactive CLI Menu
+def get_user_input():
+    print("\n📊 Trading Bot Menu")
 
-parser.add_argument("--symbol", required=True)
-parser.add_argument("--side", required=True)
-parser.add_argument("--type", required=True)
-parser.add_argument("--quantity", required=True, type=float)
-parser.add_argument("--price", type=float)
+    symbol = input("Enter symbol (e.g., BTCUSDT): ").upper()
 
-args = parser.parse_args()
+    side = input("Enter side (BUY/SELL): ").upper()
+    while side not in ["BUY", "SELL"]:
+        print("❌ Invalid input! Please enter BUY or SELL")
+        side = input("Enter side (BUY/SELL): ").upper()
 
-print("✅ Inputs received:", args)  # DEBUG LINE
+    order_type = input("Enter order type (MARKET/LIMIT): ").upper()
+    while order_type not in ["MARKET", "LIMIT"]:
+        print("❌ Invalid type! Please enter MARKET or LIMIT")
+        order_type = input("Enter order type (MARKET/LIMIT): ").upper()
 
-error = validate_input(args.symbol, args.side, args.type, args.quantity, args.price)
+    # Quantity input with validation
+    while True:
+        try:
+            quantity = float(input("Enter quantity: "))
+            if quantity <= 0:
+                print("❌ Quantity must be greater than 0")
+                continue
+            break
+        except ValueError:
+            print("❌ Please enter a valid number")
+
+    price = None
+    if order_type == "LIMIT":
+        while True:
+            try:
+                price = float(input("Enter price: "))
+                if price <= 0:
+                    print("❌ Price must be greater than 0")
+                    continue
+                break
+            except ValueError:
+                print("❌ Please enter a valid number")
+
+    return symbol, side, order_type, quantity, price
+
+
+# 🔹 Get user input
+symbol, side, order_type, quantity, price = get_user_input()
+
+print("\n✅ Inputs received:")
+print(f"Symbol: {symbol}, Side: {side}, Type: {order_type}, Quantity: {quantity}, Price: {price}")
+
+# 🔹 Validate input
+error = validate_input(symbol, side, order_type, quantity, price)
 
 if error:
     print("❌ Error:", error)
+    logging.error(f"Validation Error: {error}")
 else:
-    print("📡 Placing Order...")
-    
-    response = place_order(
-        args.symbol,
-        args.side,
-        args.type,
-        args.quantity,
-        args.price
-    )
+    print("\n📡 Placing Order...")
 
-    print("📦 Response:", response)
-    logging.info(response)
+    try:
+        response = place_order(
+            symbol,
+            side,
+            order_type,
+            quantity,
+            price
+        )
+
+        print("\n📦 Order Response:")
+        print("Order ID:", response.get("orderId"))
+        print("Status:", response.get("status"))
+        print("Executed Qty:", response.get("executedQty"))
+        print("Price:", response.get("price"))
+
+        logging.info(f"Order Response: {response}")
+
+        print("\n✅ Order placed successfully!")
+
+    except Exception as e:
+        print("\n❌ Failed to place order:", str(e))
+        logging.error(f"Order Error: {str(e)}")
